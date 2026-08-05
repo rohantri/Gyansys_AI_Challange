@@ -36,13 +36,19 @@ def get_api_key(streamlit_secrets=None, sidebar_value: str = "") -> str:
     return os.environ.get("GEMINI_API_KEY", "")
 
 
-def generate_json(prompt: str, schema_cls, temperature: float = 0.1):
-    """Call the model, parse JSON, validate against the schema. One retry."""
+def generate_json(prompt: str, schema_cls, temperature: float = 0.1, max_tokens: int = 700):
+    """Call the model, parse JSON, validate against the schema. One retry.
+
+    max_tokens matters more than it looks. Generation time scales with tokens
+    produced, and left uncapped the model will happily write four paragraphs of
+    reasoning nobody reads. 700 is enough for a decision with alternatives.
+    """
     model = genai.GenerativeModel(
         CHAT_MODEL,
         generation_config={
             "response_mime_type": "application/json",
             "temperature": temperature,
+            "max_output_tokens": max_tokens,
         },
     )
 

@@ -9,6 +9,7 @@ at request time through the API, so nothing local has to load a model.
 """
 
 import json
+import os
 import numpy as np
 from .llm import embed_documents, embed_query
 
@@ -37,7 +38,20 @@ def build_index(catalogue: dict):
     return matrix
 
 
-def search(structured, catalogue, matrix, top_k: int = 8):
+def load_or_build_index(catalogue: dict, index_path: str):
+    """Prefer the committed index. Only call the API if it's missing or stale.
+
+    Streamlit Cloud spins down idle apps, so the cold start happens more often
+    than you'd think. Loading a 46x768 float array from disk is instant.
+    """
+    if os.path.exists(index_path):
+        matrix = np.load(index_path)
+        if matrix.shape[0] == len(catalogue["entries"]):
+            return matrix, "disk"
+    return build_index(catalogue), "api"
+
+
+def search(structured, catalogue, matrix, top_k: int = 5):
     """Returns (hits, simplification_flags, standard_match_found)."""
     query = (
         f"{structured.summary} "
