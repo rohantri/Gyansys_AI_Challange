@@ -1,0 +1,87 @@
+{
+  "note": "Requirement text is deliberately written the way real tickets arrive: vague, bundled, missing key facts. expected_tier is the answer an experienced architect would give. Replace expected answers with your architect's if they disagree — their answer wins.",
+  "requirements": [
+
+    {
+      "id": "R01",
+      "text": "Purchasing keeps raising POs above 50k without the plant manager seeing them first. We need those to go for approval before they're released. Anything under 50k can carry on as is.",
+      "expected_tier": "configuration",
+      "expected_citations": ["STD_FLEXIBLE_WORKFLOW_PO"],
+      "why": "Standard approval workflow with a value condition. No code. This is the case where teams routinely build a custom release routine because nobody checked.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "R02",
+      "text": "We want to capture the internal project reference against each PO line so finance can reconcile later. It's just a short text, but it needs to show on the PO screen and come through on reports.",
+      "expected_tier": "key_user",
+      "expected_citations": ["KEYUSER_PO_CUSTOM_FIELD"],
+      "why": "A field on a standard object with UI and reporting exposure. Custom Fields app covers all three. No developer needed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "R03",
+      "text": "Our carrier portal needs to see live stock at each plant so they can plan pickups. It's a web app the carriers log into, outside our network.",
+      "expected_tier": "side_by_side",
+      "expected_citations": ["API_MATERIAL_STOCK_SRV"],
+      "why": "External consumers, external UI, read-only data. Released API plus an app outside S/4HANA. Nothing belongs inside the core.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "R04",
+      "text": "When a goods receipt is posted for a hazardous material we need an extra check that the storage location is licensed for it, and stop the posting if it isn't. The licence list is in a spreadsheet at the moment but we'd move it into SAP.",
+      "expected_tier": "developer_in_app",
+      "expected_citations": ["MB_MIGO_BADI", "MB_DOCUMENT_BADI"],
+      "why": "Validation that must block a posting has to run inside the transaction. Key-user logic can't do this reliably. In-app BAdI is the right tier.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "R05",
+      "text": "Buyers are missing supplier confirmations that never arrive. We want them nudged when a confirmation is overdue, in the launchpad, not by email.",
+      "expected_tier": "configuration",
+      "expected_citations": ["STD_SITUATION_HANDLING"],
+      "why": "Situation Handling detects and notifies in the launchpad, configured not coded. Frequently rebuilt as a custom report and a batch job.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "R06",
+      "text": "Legal wants a monthly report of every material movement for controlled items, exported to their system. Currently someone pulls it from MSEG with a Z report.",
+      "expected_tier": "developer_in_app",
+      "expected_citations": ["I_MaterialDocumentItem", "SI_MM_IM_DATA_MODEL"],
+      "why": "The existing Z report reads MSEG, which no longer exists as a table in S/4HANA. Must move to the released CDS view. The simplification item is the important flag here, not the tier.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "R07",
+      "text": "We need PO output to go to the supplier by email with our new template and a copy to the buyer.",
+      "expected_tier": "configuration",
+      "expected_citations": ["STD_OUTPUT_MANAGEMENT_PO"],
+      "why": "Standard output management handles determination, channel and template. Config plus a form change.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "R08",
+      "text": "Add a field on the material master for our internal hazard class, and when someone saves a material with hazard class 3 it should automatically set the storage condition and block it from being used in the export plants.",
+      "expected_tier": "developer_in_app",
+      "expected_citations": ["KEYUSER_PRODUCT_CUSTOM_FIELD", "I_ProductPlant"],
+      "why": "Bundled request. The field alone is key-user. The conditional logic across plants is not, so the whole thing lands one tier deeper. Good test of whether the system splits the request instead of answering the first half.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "R09",
+      "text": "Our old system had a vendor scorecard that weighted on-time delivery, price variance and quality claims into a single number the buyers used. We want the same thing back.",
+      "expected_tier": "configuration",
+      "expected_citations": ["STD_SUPPLIER_EVALUATION"],
+      "why": "Standard supplier evaluation covers this. The right answer is check standard before rebuilding. Ambiguity is whether the weighting model matches, which should be flagged rather than assumed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "R10",
+      "text": "We need the system to predict which POs are likely to be delivered late based on supplier history and the weather at the origin port, and show that as a risk flag on the PO screen so buyers can act early.",
+      "expected_tier": "escalate",
+      "expected_citations": [],
+      "why": "No sanctioned path. Needs external weather data, a prediction model, and a change to the PO user interface. The correct output is escalation to an architect, not a confident recommendation. This is the case the demo must get right.",
+      "difficulty": "hard"
+    }
+
+  ]
+}

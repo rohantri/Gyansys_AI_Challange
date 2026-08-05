@@ -1,0 +1,82 @@
+version: "0.1"
+module: MM
+
+# Rules run top to bottom. The first rule with severity 'decisive' that matches
+# wins. Rules with severity 'blocker' are handled in code before these run.
+# Conditions: all_of = every pair must match. any_of = at least one must match.
+# An architect should be able to read this file and disagree with it out loud.
+
+rules:
+
+  - id: STANDARD_FIRST
+    verdict: configuration
+    severity: decisive
+    all_of:
+      - standard_match_found: true
+    reason: >
+      Standard functionality already covers this. Configure it rather than
+      building anything.
+
+  - id: EXTERNAL_BOUNDARY
+    verdict: side_by_side
+    severity: decisive
+    any_of:
+      - external_consumer: true
+      - external_data: true
+    reason: >
+      The solution must reach outside the S/4HANA boundary, either because a
+      non-SAP audience consumes it or because the data lives elsewhere. Build
+      separately and consume a released API. Do not put this inside the core.
+
+  - id: BLOCKING_VALIDATION
+    verdict: developer_in_app
+    severity: decisive
+    all_of:
+      - blocks_transaction: true
+    reason: >
+      Logic that must prevent a posting has to run inside the transaction.
+      Key-user custom logic is not reliable for hard blocks.
+
+  - id: FIELD_ONLY
+    verdict: key_user
+    severity: decisive
+    all_of:
+      - field_only: true
+      - needs_custom_ui: false
+    reason: >
+      Adding a field to a standard object, including exposure to the standard
+      UI, reports and APIs, is covered by the Custom Fields app. No developer
+      required.
+
+  - id: NEW_SCREEN_INSIDE_CORE
+    verdict: developer_in_app
+    severity: decisive
+    all_of:
+      - needs_custom_ui: true
+      - external_consumer: false
+    reason: >
+      A new user interface inside S/4HANA requires developer extensibility.
+
+  - id: READ_ONLY_REPORTING
+    verdict: developer_in_app
+    severity: strong
+    all_of:
+      - action_type: read
+      - external_consumer: false
+    reason: >
+      Reporting inside S/4HANA should read released CDS views rather than
+      base tables.
+
+  - id: DEFAULT_ESCALATE
+    verdict: escalate
+    severity: fallback
+    all_of: []
+    reason: >
+      The requirement does not match a known pattern. An architect should
+      look at it.
+
+disagreement_policy: >
+  Where the rule verdict and the model recommendation differ, show both.
+  Do not resolve silently. Disagreement is the signal that a human should
+  look, and it is what makes the approval gate meaningful rather than
+  ceremonial.
