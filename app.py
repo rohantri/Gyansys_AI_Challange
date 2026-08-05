@@ -33,22 +33,37 @@ if not api_key:
 llm.configure(api_key)
 
 
-@st.cache_resource(show_spinner="Embedding the catalogue…")
+@st.cache_resource(show_spinner="Loading catalogue…")
 def load_everything():
     catalogue = retrieval.load_catalogue(os.path.join(DATA, "mm_catalogue.json"))
-    matrix = retrieval.build_index(catalogue)
+    matrix, source = retrieval.load_or_build_index(
+        catalogue, os.path.join(DATA, "index.npy")
+    )
     rules_cfg = rules_mod.load_rules(os.path.join(DATA, "tier_rules.yaml"))
     with open(os.path.join(DATA, "gold_requirements.json")) as f:
         gold = json.load(f)["requirements"]
-    return catalogue, matrix, rules_cfg, gold
+    return catalogue, matrix, rules_cfg, gold, source
 
 
-catalogue, matrix, rules_cfg, gold = load_everything()
+catalogue, matrix, rules_cfg, gold, index_source = load_everything()
 
 st.sidebar.caption(
     f"{len(catalogue['entries'])} catalogue entries · rules v{rules_cfg['version']} · "
     f"module {catalogue['module_scope'].split('—')[0].strip()}"
 )
+
+if index_source == "api":
+    st.sidebar.info(
+        "Index built live. Run `build_index.py` and commit `data/index.npy` "
+        "to skip this on cold starts."
+    )
+
+
+@st.cache_data(show_spinner=False, max_entries=50)
+def cached_run(text, _catalogue, _matrix, _rules_cfg):
+    """Same requirement twice returns instantly. Matters during a demo when
+    you re-run the same three examples."""
+    return pipeline.run(text, _catalogue, _matrix, _rules_cfg)
 
 low_conf = [e for e in catalogue["entries"] if e.get("confidence") == "low"]
 if low_conf:
@@ -81,8 +96,19 @@ with tab_analyse:
     text = st.text_area("Change request", value=default_text, height=120)
 
     if st.button("Analyse", type="primary", disabled=not text.strip()):
-        with st.spinner("Reading the requirement, searching the catalogue, applying rules…"):
-            st.session_state.trace = pipeline.run(text, catalogue, matrix, rules_cfg)
+        cache_key = st.session_state.get("last_text")
+        if cache_key == text and st.session_state.get("trace", {}).get("elapsed"):
+            st.toast("Cached result")
+        else:
+            status = st.status("Reading the requirement…", expanded=False)
+            for stage, trace in pipeline.run_streaming(text, catalogue, matrix, rules_cfg):
+                if stage == "structured":
+                    status.update(label="Searching the catalogue…")
+                elif stage == "retrieval_and_rules":
+                    status.update(label="Writing the decision…")
+                st.session_state.trace = trace
+            status.update(label="Done", state="complete")
+            st.session_state.last_text = text
 
     trace = st.session_state.get("trace")
 
@@ -219,7 +245,7 @@ with tab_eval:
         results = []
         bar = st.progress(0.0)
         for i, g in enumerate(gold):
-            t = pipeline.run(g["text"], catalogue, matrix, rules_cfg)
+            t = cached_run(g["text"], catalogue, matrix, rules_cfg)
             if "validation" in t:
                 predicted = t["validation"]["final_tier"]
                 cited = set(t["validation"]["kept_citations"])
